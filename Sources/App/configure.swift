@@ -44,12 +44,17 @@ public func configure(_ app: Application) async throws {
             database: ProcessInfo.processInfo.environment["DATABASE_NAME"] ?? "vapor_database"
         ), as: .mysql)
     case .testing:
+        // 配置 TLS/SSL 证书以启用安全连接
+        var tls = TLSConfiguration.makeClientConfiguration()
+        tls.certificateVerification = .fullVerification
+        tls.trustRoots = .file("/etc/letsencrypt/live/bayanarabic.cn/cert.pem")
         app.databases.use(DatabaseConfigurationFactory.mysql(
             hostname: ProcessInfo.processInfo.environment["DATABASE_HOST"] ?? "localhost",
             port: ProcessInfo.processInfo.environment["DATABASE_PORT"].flatMap(Int.init(_:)) ?? MySQLConfiguration.ianaPortNumber,
             username: ProcessInfo.processInfo.environment["DATABASE_USERNAME"] ?? "vapor_username",
             password: ProcessInfo.processInfo.environment["DATABASE_PASSWORD"] ?? "vapor_password",
-            database: ProcessInfo.processInfo.environment["DATABASE_NAME"] ?? "vapor_database"
+            database: ProcessInfo.processInfo.environment["DATABASE_NAME"] ?? "vapor_database",
+            tlsConfiguration: tls
         ), as: .mysql)
     case .development:
         var tls = TLSConfiguration.makeClientConfiguration()
