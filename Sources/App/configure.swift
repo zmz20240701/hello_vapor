@@ -36,12 +36,17 @@ public func configure(_ app: Application) async throws {
     // MARK: 数据库配置
     switch app.environment {
     case .production:
+        
+        var tls = TLSConfiguration.clientDefault
+        tls.certificateVerification = .fullVerification
+        tls.trustRoots = .file(ProcessInfo.processInfo.environment["ROOT_CERT"] ?? "not set")
         app.databases.use(DatabaseConfigurationFactory.mysql(
-            hostname: ProcessInfo.processInfo.environment["DATABASE_HOST"] ?? "localhost",
+            hostname: ProcessInfo.processInfo.environment["DATABASE_HOST"] ?? "not set",
             port: ProcessInfo.processInfo.environment["DATABASE_PORT"].flatMap(Int.init(_:)) ?? MySQLConfiguration.ianaPortNumber,
-            username: ProcessInfo.processInfo.environment["DATABASE_USERNAME"] ?? "vapor_username",
-            password: ProcessInfo.processInfo.environment["DATABASE_PASSWORD"] ?? "vapor_password",
-            database: ProcessInfo.processInfo.environment["DATABASE_NAME"] ?? "vapor_database"
+            username: ProcessInfo.processInfo.environment["DATABASE_USERNAME"] ?? "not set",
+            password: ProcessInfo.processInfo.environment["DATABASE_PASSWORD"] ?? "not set",
+            database: ProcessInfo.processInfo.environment["DATABASE_NAME"] ?? "not set",
+            tlsConfiguration: tls
         ), as: .mysql)
     case .testing:
 
@@ -50,14 +55,14 @@ public func configure(_ app: Application) async throws {
         var tls = TLSConfiguration.clientDefault
         
         tls.certificateVerification = .fullVerification
-        tls.trustRoots = .file("/Users/zhaokang/Documents/certs/isrgrootx1.pem")
+        tls.trustRoots = .file(ProcessInfo.processInfo.environment["ROOT_CERT"] ?? "not set")
 
         app.databases.use(DatabaseConfigurationFactory.mysql(
-            hostname: ProcessInfo.processInfo.environment["DATABASE_HOST"] ?? "localhost",
+            hostname: ProcessInfo.processInfo.environment["DATABASE_HOST"] ?? "not set",
             port: ProcessInfo.processInfo.environment["DATABASE_PORT"].flatMap(Int.init(_:)) ?? MySQLConfiguration.ianaPortNumber,
-            username: ProcessInfo.processInfo.environment["DATABASE_USERNAME"] ?? "vapor_username",
-            password: ProcessInfo.processInfo.environment["DATABASE_PASSWORD"] ?? "vapor_password",
-            database: ProcessInfo.processInfo.environment["DATABASE_NAME"] ?? "vapor_database",
+            username: ProcessInfo.processInfo.environment["DATABASE_USERNAME"] ?? "not set",
+            password: ProcessInfo.processInfo.environment["DATABASE_PASSWORD"] ?? "not set",
+            database: ProcessInfo.processInfo.environment["DATABASE_NAME"] ?? "not set",
             tlsConfiguration: tls
         ), as: .mysql)
 
@@ -66,18 +71,17 @@ public func configure(_ app: Application) async throws {
         tls.certificateVerification = .none
         
         app.databases.use(DatabaseConfigurationFactory.mysql(
-            hostname: ProcessInfo.processInfo.environment["DATABASE_HOST"] ?? "localhost",
+            hostname: ProcessInfo.processInfo.environment["DATABASE_HOST"] ?? "not set",
             port: ProcessInfo.processInfo.environment["DATABASE_PORT"].flatMap(Int.init(_:)) ?? MySQLConfiguration.ianaPortNumber,
-            username: ProcessInfo.processInfo.environment["DATABASE_USERNAME"] ?? "vapor_username",
-            password: ProcessInfo.processInfo.environment["DATABASE_PASSWORD"] ?? "vapor_password",
-            database: ProcessInfo.processInfo.environment["DATABASE_NAME"] ?? "vapor_database",
+            username: ProcessInfo.processInfo.environment["DATABASE_USERNAME"] ?? "not set",
+            password: ProcessInfo.processInfo.environment["DATABASE_PASSWORD"] ?? "not set",
+            database: ProcessInfo.processInfo.environment["DATABASE_NAME"] ?? "not set",
             tlsConfiguration: tls
         ), as: .mysql)
 
 
     default:
-        let foo = ProcessInfo.processInfo.environment["FOO"]
-        print(foo ?? "FOO not found")
+        break
     }
 
 
