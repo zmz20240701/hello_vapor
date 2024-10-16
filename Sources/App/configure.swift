@@ -45,9 +45,9 @@ public func configure(_ app: Application) async throws {
         ), as: .mysql)
     case .testing:
         // 配置 TLS/SSL 证书以启用安全连接
-        var tls = TLSConfiguration.makeClientConfiguration()
+        var tls = TLSConfiguration.clientDefault
         tls.certificateVerification = .fullVerification
-        tls.trustRoots = .file("/etc/letsencrypt/live/bayanarabic.cn/fullchain.pem")
+        tls.trustRoots = .file("/Users/zhaokang/Documents/certs/isrgrootx1.pem")
         app.databases.use(DatabaseConfigurationFactory.mysql(
             hostname: ProcessInfo.processInfo.environment["DATABASE_HOST"] ?? "localhost",
             port: ProcessInfo.processInfo.environment["DATABASE_PORT"].flatMap(Int.init(_:)) ?? MySQLConfiguration.ianaPortNumber,
