@@ -11,16 +11,6 @@ import NIOCore
 let log = SwiftyBeaver.self // 在全局范围定义日志实例
 
 public func configure(_ app: Application) async throws {
-    
-    
-    // Serves files from `Public/` directory
-    // 使用 FileMiddleware 提供 Public 文件夹中的静态文件
-    let fileMiddleware = try FileMiddleware(bundle: .main, publicDirectory: "Public")
-    app.middleware.use(fileMiddleware)
-    
-    
-    
-    
     // MARK: 环境变量文件引入
     let elg = MultiThreadedEventLoopGroup(numberOfThreads: 1)
     let pool = NIOThreadPool(numberOfThreads: 1)
@@ -90,7 +80,8 @@ public func configure(_ app: Application) async throws {
         app.redis.configuration = redisConfig
         
     case .testing:
-        
+        let fileMiddleware = FileMiddleware(publicDirectory: app.directory.publicDirectory)
+            app.middleware.use(fileMiddleware)
         var tls = TLSConfiguration.clientDefault
         tls.certificateVerification = .fullVerification
         tls.trustRoots = .file(ProcessInfo.processInfo.environment["ROOT_CERT"] ?? "not set")
