@@ -14,7 +14,10 @@ struct CreateUserDTO: Content {
     var email: String
     var password: String
 }
-
+struct LoginDTO: Content {
+    var email: String
+    var password: String
+}
 struct UpdateUserDTO: Content {
     var firstname: String?
     var lastname: String?

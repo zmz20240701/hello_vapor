@@ -20,6 +20,7 @@ let package = Package(
         // 日志信息配置文件
         .package(url: "https://github.com/SwiftyBeaver/SwiftyBeaver.git", .upToNextMajor(from: "2.1.1")),
         .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
+        .package(url: "https://github.com/vapor/redis.git", from: "4.0.0")
     ],
     targets: [
         .executableTarget(
@@ -32,6 +33,7 @@ let package = Package(
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "DotEnv", package: "DotEnv"),
                 .product(name: "SwiftyBeaver", package: "SwiftyBeaver"),
+                .product(name: "Redis", package: "redis"),
             ],
             swiftSettings: swiftSettings
         ),
