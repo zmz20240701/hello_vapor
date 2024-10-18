@@ -25,4 +25,4 @@ final class PlanetMiddleware: AsyncModelMiddleware {
     }
 }
 
-//中间件不需要调用, 直接定义方法, 并在配置文件中加入即可
+// 模型中间件不需要调用, 直接定义方法, 并在配置文件中加入即可,它控制的是对数据库的增删改查.类似于钩子

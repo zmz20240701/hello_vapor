@@ -104,7 +104,9 @@ struct UserController: RouteCollection {
     func update(req: Request) async throws -> GetUserDTO {
         let updatedUser = try req.content.decode(UpdateUserDTO.self)
         let userID = req.parameters.get("id", as: UUID.self)
-        guard
+        guard // 这里上边一行代码我们将获取到的 id 转换为了 UUID, 因为下边 find 方法接受 UUID 类型,
+					// 不接受字符串类型, 如果是字符串类型可以
+//					let user = try await UserModel.find(UUID(uuidString: <字符串 ID>), on: req.db)
             let user = try await UserModel.find(userID, on: req.db)
         else {
             throw Abort(.notFound, reason: "用户不存在")

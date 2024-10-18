@@ -38,6 +38,9 @@ public func configure(_ app: Application) async throws {
     
     switch app.environment {
     case .production:
+        // 使用 FileMiddleware 提供 Public 文件夹中的静态文件
+        let fileMiddleware = FileMiddleware(publicDirectory: app.directory.publicDirectory)
+            app.middleware.use(fileMiddleware)
         // 配置 TLS/SSL 证书以启用安全连接
         var tls = TLSConfiguration.clientDefault
         tls.certificateVerification = .fullVerification
