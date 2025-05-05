@@ -1,0 +1,264 @@
+# 签名算法原理和使用
+
+## 准备工作
+
+### 步骤一：获取基本信息及确定开发语言
+
+1. 在访问管理控制台的 **API 密钥管理** 页面中获取APPID、SecretId 和 SecretKey。
+
+2. 确定开发语言
+   支持但不限于 Java、PHP、.NET、C++、Node.js、Python，根据不同的开发语言，确定对应的 HMAC-SHA1、SHA1 和 UrlEncode 函数。不同语言调用 HMAC-SHA1的算法示例请参见 [消息摘要算法示例]()。
+   
+   其中，HMAC-SHA1 和 SHA1 函数以 UTF-8 编码字符串为输入，以16进制小写字符串为输出。UrlEncode 基于 UTF-8 编码，此外对于 ASCII 范围内的可打印字符，下列特殊符号也应被编码。
+
+| 字符 | 十进制 | 十六进制 | 字符 | 十进制 | 十六进制 |
+|------|--------|----------|------|--------|----------|
+| (空格) | 32 | 20 | : | 59 | 3B |
+| ! | 33 | 21 | < | 60 | 3C |
+| " | 34 | 22 | = | 61 | 3D |
+| # | 35 | 23 | > | 62 | 3E |
+| $ | 36 | 24 | ? | 63 | 3F |
+| % | 37 | 25 | @ | 64 | 40 |
+| & | 38 | 26 | [ | 91 | 5B |
+| ' | 39 | 27 | \ | 92 | 5C |
+| ( | 40 | 28 | ] | 93 | 5D |
+| ) | 41 | 29 | ^ | 94 | 5E |
+| * | 42 | 2A | ` | 96 | 60 |
+| + | 43 | 2B | { | 123 | 7B |
+| , | 44 | 2C | \| | 124 | 7C |
+| / | 47 | 2F | } | 125 | 7D |
+| : | 58 | 3A | 无 | 无 | 无 |
+
+### 步骤二：生成签名有效时间 KeyTime
+
+1. 获取当前时间对应的 Unix 时间戳 StartTimestamp，Unix 时间戳是从 UTC（协调世界时，或 GMT 格林威治时间）1970年1月1日0时0分0秒（北京时间 1970年1月1日8时0分0秒）起至现在的总秒数。
+2. 根据上述时间戳和期望的签名有效时长算出签名过期时间对应的 Unix 时间戳 EndTimestamp。
+3. 拼接签名有效时间，格式为 `StartTimestamp;EndTimestamp`，即为 KeyTime。例如：`1557902800;1557910000`。
+
+### 步骤三：生成 UrlParamList 和 HttpParameters
+
+1. 遍历 HTTP 请求参数，生成 key 到 value 的映射 Map 及 key 的列表 KeyList：
+   - key 使用 UrlEncode 编码并转换为小写形式。
+   - value 使用 UrlEncode 编码。若无 value 的参数，则认为 value 为空字符串。例如请求路径为`/?acl`，则认为是`/?acl=`。
+
+> **说明**：HTTP 请求参数，即请求路径中`?`以后的部分，例如请求路径为 `/?versions&prefix=example-folder%2F&delimiter=%2F&max-keys=10`，则请求参数为`versions&prefix=example-folder%2F&delimiter=%2F&max-keys=10`。
+
+2. 将 KeyList 按照字典序排序。
+3. 按照 KeyList 的顺序拼接 Map 中的每一个键值对，格式为 `key1=value1&key2=value2&key3=value3`，即为 HttpParameters。
+4. 按照 KeyList 的顺序拼接 KeyList 中的每一项，格式为 `key1;key2;key3`，即为 UrlParamList，请求参数列表。
+
+**示例**：
+
+**示例一**：
+- 请求路径：`/?prefix=example-folder%2F&delimiter=%2F&max-keys=10`
+- UrlParamList：`delimiter;max-keys;prefix`
+- HttpParameters：`delimiter=%2F&max-keys=10&prefix=example-folder%2F`
+
+> **注意**：请求路径中的请求参数在实际发送请求时也会进行 UrlEncode，因此要注意不要重复执行 UrlEncode。
+
+**示例二**：
+- 请求路径：`/exampleobject?acl`
+- UrlParamList：`acl`
+- HttpParameters：`acl=`
+
+### 步骤四：生成 HeaderList 和 HttpHeaders
+
+1. 遍历 HTTP 请求头部，生成 key 到 value 的映射 Map 及 key 的列表 KeyList，key 使用 UrlEncode 编码并转换为小写形式，value 使用 UrlEncode 编码。
+
+> **注意**：遍历 HTTP 请求头部时，不需要处理全部头部，用户可按需筛选。
+
+2. 将 KeyList 按照字典序排序。
+3. 按照 KeyList 的顺序拼接 Map 中的每一个键值对，格式为 `key1=value1&key2=value2&key3=value3`，即为 HttpHeaders。
+4. 按照 KeyList 的顺序拼接 KeyList 中的每一项，格式为 `key1;key2;key3`，即为 HeaderList，请求头部列表。
+
+**示例**：
+
+请求头：
+```
+Host: examplebucket-1250000000.cos.ap-shanghai.myqcloud.com
+Date: Thu, 16 May 2019 03:15:06 GMT
+x-cos-acl: private
+x-cos-grant-read: uin="100000000011"
+```
+
+计算得到：
+- HeaderList = `date;host;x-cos-acl;x-cos-grant-read`
+- HttpHeaders = `date=Thu%2C%2016%20May%202019%2003%3A15%3A06%20GMT&host=examplebucket-1250000000.cos.ap-shanghai.myqcloud.com&x-cos-acl=private&x-cos-grant-read=uin%3D%22100000000011%22`
+
+## 签名计算
+
+### 步骤一：生成 API 密钥 SignKey
+
+使用 HMAC-SHA1 以 SecretKey 为密钥，以 KeyTime 为消息，计算消息摘要（哈希值，16进制小写形式），不同语言的生成方式可参考附录，得到 SignKey，例如：`eb2519b498b02ac213cb1f3d1a3d27a3b3c9bc5f`。
+
+### 步骤二：生成过程参数 HttpString
+
+根据 HTTP 方法（HttpMethod）、HTTP 请求路径（UriPathname）、HttpParameters 和 HttpHeaders 生成 HttpString，格式为：
+```
+HttpMethod\nUriPathname\nHttpParameters\nHttpHeaders\n
+```
+
+其中：
+- HttpMethod 转换为小写，例如 `get` 或 `put`。
+- UriPathname 为请求路径，例如 `/`或`/exampleobject`。
+- `\n`为换行符。如果其中有字符串为空，前后的换行符需要保留，例如 `get\n/exampleobject\n\n\n`。
+
+### 步骤三：生成过程参数 StringToSign
+
+根据 KeyTime 和 HttpString 生成 StringToSign，格式为：
+```
+sha1\nKeyTime\nSHA1(HttpString)\n
+```
+
+其中：
+- `sha1` 为固定字符串。
+- `\n`为换行符。
+- SHA1(HttpString) 为使用 SHA1 对 HttpString 计算的消息摘要，16进制小写形式，例如：`54ecfe22f59d3514fdc764b87a32d8133ea611e6`。
+
+### 步骤四：生成过程参数 Signature
+
+使用 HMAC-SHA1 以 SignKey 为密钥（字符串形式，非原始二进制），以 StringToSign 为消息，计算消息摘要，即为 Signature，例如：`01681b8c9d798a678e43b685a9f1bba0f6c01234`。
+
+### 步骤五：生成签名
+
+根据 SecretId、KeyTime、HeaderList、UrlParamList 和 Signature 生成签名，格式为：
+```
+q-sign-algorithm=sha1
+&q-ak=************************************
+&q-sign-time=KeyTime
+&q-key-time=KeyTime
+&q-header-list=HeaderList
+&q-url-param-list=UrlParamList
+&q-signature=Signature
+```
+
+> **注意**：上述格式中的换行仅用于更好的阅读，实际格式并不包含换行。
+
+## 签名使用
+
+通过 RESTful API 对 COS 发起的 HTTP 签名请求，可以通过以下几种方式传递签名：
+
+1. 通过标准的 HTTP Authorization 头，例如 `Authorization: q-sign-algorithm=sha1&q-ak=...&q-sign-time=1557989753;1557996953&...&q-signature=...`
+2. 作为 HTTP 请求参数，请注意 UrlEncode，例如 `/exampleobject?q-sign-algorithm=sha1&q-ak=...&q-sign-time=1557989753%3B1557996953&...&q-signature=...`
+
+> **说明**：上述示例中使用 `...` 省略了部分具体签名内容。
+
+如果在计算签名时使用了临时安全凭证（临时密钥），那么在发送请求时还应传入安全令牌字段 `x-cos-security-token`，根据签名使用方式不同，安全令牌字段的传入方式也有所不同：
+
+- 当通过标准的 HTTP Authorization 头传入签名时，应同时通过 `x-cos-security-token` 请求头部传入安全令牌字段，例如：
+  ```
+  Authorization: q-sign-algorithm=sha1&q-ak=************************************&q-sign-time=1557989753;1557996953&...&q-signature=****************************************
+  x-cos-security-token: ...
+  ```
+
+- 当通过 HTTP 请求参数传入签名时，应同时通过 `x-cos-security-token` 请求参数传入安全令牌字段，例如：
+  ```
+  /exampleobject?q-sign-algorithm=sha1&q-ak=************************************&q-sign-time=1557989753%3B1557996953&...&q-signature=****************************************&x-cos-security-token=...
+  ```
+
+> **说明**：上述示例中使用 `...` 省略了部分具体签名和安全访问令牌内容。
+
+## 签名示例
+
+### 示例一：上传对象
+
+**原始请求**
+```
+PUT /exampleobject(%E8%85%BE%E8%AE%AF%E4%BA%91) HTTP/1.1
+Date: Thu, 16 May 2019 06:45:51 GMT
+Host: examplebucket-1250000000.cos.ap-beijing.myqcloud.com
+Content-Type: text/plain
+Content-Length: 13
+Content-MD5: mQ/fVh815F3k6TAUm8m0eg==
+x-cos-acl: private
+x-cos-grant-read: uin="100000000011"
+﻿
+ObjectContent
+```
+
+**中间变量**
+```
+KeyTime = 1557989151;1557996351
+SignKey = eb2519b498b02ac213cb1f3d1a3d27a3b3c9bc5f
+UrlParamList = (empty string)
+HttpParameters = (empty string)
+HeaderList = content-length;content-md5;content-type;date;host;x-cos-acl;x-cos-grant-read
+HttpHeaders = content-length=13&content-md5=mQ%2FfVh815F3k6TAUm8m0eg%3D%3D&content-type=text%2Fplain&date=Thu%2C%2016%20May%202019%2006%3A45%3A51%20GMT&host=examplebucket-1250000000.cos.ap-beijing.myqcloud.com&x-cos-acl=private&x-cos-grant-read=uin%3D%22100000000011%22
+HttpString = put\n/exampleobject(腾讯云)\n\ncontent-length=13&content-md5=mQ%2FfVh815F3k6TAUm8m0eg%3D%3D&content-type=text%2Fplain&date=Thu%2C%2016%20May%202019%2006%3A45%3A51%20GMT&host=examplebucket-1250000000.cos.ap-beijing.myqcloud.com&x-cos-acl=private&x-cos-grant-read=uin%3D%22100000000011%22\n
+StringToSign = sha1\n1557989151;1557996351\n8b2751e77f43a0995d6e9eb9477f4b685cca4172\n
+Signature = 3b8851a11a569213c17ba8fa7dcf2abec6931234
+```
+
+其中，`(empty string)` 代表长度为0的空字符串，`\n`代表换行符。
+
+**签名后的请求**
+```
+PUT /exampleobject(%E8%85%BE%E8%AE%AF%E4%BA%91) HTTP/1.1
+Date: Thu, 16 May 2019 06:45:51 GMT
+Host: examplebucket-1250000000.cos.ap-beijing.myqcloud.com
+Content-Type: text/plain
+Content-Length: 13
+Content-MD5: mQ/fVh815F3k6TAUm8m0eg==
+x-cos-acl: private
+x-cos-grant-read: uin="100000000011"
+Authorization: q-sign-algorithm=sha1&q-ak=************************************&q-sign-time=1557989151;1557996351&q-key-time=1557989151;1557996351&q-header-list=content-length;content-md5;content-type;date;host;x-cos-acl;x-cos-grant-read&q-url-param-list=&q-signature=****************************************
+﻿
+ObjectContent
+```
+
+### 示例二：下载对象
+
+**原始请求**
+```
+GET /exampleobject(%E8%85%BE%E8%AE%AF%E4%BA%91)?response-content-type=application%2Foctet-stream&response-cache-control=max-age%3D600 HTTP/1.1
+Date: Thu, 16 May 2019 06:55:53 GMT
+Host: examplebucket-1250000000.cos.ap-beijing.myqcloud.com
+```
+
+**中间变量**
+```
+KeyTime = 1557989753;1557996953
+SignKey = 937914bf490e9e8c189836aad2052e4feeb35eaf
+UrlParamList = response-cache-control;response-content-type
+HttpParameters = response-cache-control=max-age%3D600&response-content-type=application%2Foctet-stream
+HeaderList = date;host
+HttpHeaders = date=Thu%2C%2016%20May%202019%2006%3A55%3A53%20GMT&host=examplebucket-1250000000.cos.ap-beijing.myqcloud.com
+HttpString = get\n/exampleobject(腾讯云)\nresponse-cache-control=max-age%3D600&response-content-type=application%2Foctet-stream\ndate=Thu%2C%2016%20May%202019%2006%3A55%3A53%20GMT&host=examplebucket-1250000000.cos.ap-beijing.myqcloud.com\n
+StringToSign = sha1\n1557989753;1557996953\n54ecfe22f59d3514fdc764b87a32d8133ea611e6\n
+Signature = 01681b8c9d798a678e43b685a9f1bba0f6c01234
+```
+
+其中，`\n` 代表换行符。
+
+**签名后的请求**
+```
+GET /exampleobject(%E8%85%BE%E8%AE%AF%E4%BA%91)?response-content-type=application%2Foctet-stream&response-cache-control=max-age%3D600 HTTP/1.1
+Date: Thu, 16 May 2019 06:55:53 GMT
+Host: examplebucket-1250000000.cos.ap-beijing.myqcloud.com
+Authorization: q-sign-algorithm=sha1&q-ak=************************************&q-sign-time=1557989753;1557996953&q-key-time=1557989753;1557996953&q-header-list=date;host&q-url-param-list=response-cache-control;response-content-type&q-signature=****************************************
+```
+
+## 附录
+
+### 伪代码
+```
+KeyTime = [Now];[Expires]
+SignKey = HMAC-SHA1([SecretKey], KeyTime)
+HttpString = [HttpMethod]\n[HttpURI]\n[HttpParameters]\n[HttpHeaders]\n
+StringToSign = sha1\nKeyTime\nSHA1(HttpString)\n
+Signature = HMAC-SHA1(SignKey, StringToSign)
+```
+
+### 消息摘要算法示例
+
+不同语言如何调用 HMAC-SHA1 可以参考下面的示例：
+
+**Python**
+```python
+import hmac
+import hashlib
+﻿
+sha1_http_string = hashlib.sha1('ExampleHttpString'.encode('utf-8')).hexdigest()
+﻿
+sign_key = hmac.new('YourSecretKey'.encode('utf-8'), 'ExampleKeyTime'.encode('utf-8'), hashlib.sha1).hexdigest()
+```
